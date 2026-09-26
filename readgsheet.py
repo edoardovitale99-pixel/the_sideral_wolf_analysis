@@ -23,7 +23,10 @@ def read_gsheet(url: str) -> pd.DataFrame:
         DataFrame con i dati del foglio.
     """
     sheet_id, gid = _parse_url(url)
-    csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+    if gid:
+       csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+    else:
+       csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
     return pd.read_csv(csv_url)
 
 
@@ -34,6 +37,6 @@ def _parse_url(url: str):
     sheet_id = m.group(1)
 
     gid_match = re.search(r"gid=(\d+)", url)
-    gid = gid_match.group(1) if gid_match else "0"
+    gid = gid_match.group(1) if gid_match else None
 
     return sheet_id, gid
