@@ -1,0 +1,8 @@
+# Segreti locali — non caricare su GitHub
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
