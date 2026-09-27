@@ -69,4 +69,4 @@ def team_analysis(
         .sort_values(by="Squadra")
     )
 
-    return classifica_squadre, giocatori_top3, rounds_df
+    return classifica_squadre, giocatori_top3, standings
