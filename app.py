@@ -31,21 +31,21 @@ with st.expander("⚙️ Parametri", expanded=True):
             value="https://docs.google.com/spreadsheets/u/0/d/1fkwHoruSU_9-YqRYv_qvcBe52bc0VVgfMx38WNBvjjY/htmlview#gid=1101659693",
             help="Link al foglio Google Sheets con i dati delle squadre (deve essere pubblico)",
         )
-        top_n = st.number_input(
-            "Top N squadre",
-            min_value=1,
-            max_value=10,
-            value=3,
-            step=1,
-            help="Quante squadre mostrare in classifica",
-        )
         submitted = st.form_submit_button("🔍 Analizza", use_container_width=True)
 
 
 # ── Funzione cached ───────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
-def run_analysis(api_key, tournament_id, site, gsheet_url, top_n):
-    return team_analysis(api_key, tournament_id, site, gsheet_url, top_n)
+def run_analysis(api_key, tournament_id, site, gsheet_url):
+    return team_analysis(api_key, tournament_id, site, gsheet_url)
+
+
+def df_to_excel_bytes(df):
+    import pandas as pd
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False)
+    return buf.getvalue()
 
 
 # ── Risultati ─────────────────────────────────────────────────────────────────
@@ -56,8 +56,8 @@ if submitted:
 
     with st.spinner("⏳ Download dati in corso, attendere..."):
         try:
-            classifica, giocatori, rounds_df = run_analysis(
-                api_key, tournament_id, site, gsheet_url, top_n
+            classifica, giocatori, merged_df, rounds_df = run_analysis(
+                api_key, tournament_id, site, gsheet_url
             )
         except Exception as e:
             st.error(f"❌ Errore durante il download: {e}")
@@ -65,42 +65,56 @@ if submitted:
             st.stop()
 
     st.success("✅ Analisi completata!")
+    st.divider()
 
-    # ── Classifica squadre ────────────────────────────────────────────────────
-    st.subheader("🥇 Classifica Squadre")
+    # ── Podio Top 3 Squadre ───────────────────────────────────────────────────
+    st.subheader("🥇 Top 3 Squadre")
 
-    classifica_display = classifica.reset_index()
-    classifica_display.index = classifica_display.index + 1  # posizione da 1
-    classifica_display.columns = ["Squadra", "Punti (top 3 giocatori)"]
-    st.dataframe(classifica_display, use_container_width=True)
+    medaglie = ["🥇", "🥈", "🥉"]
+    squadre_ordinate = classifica.reset_index()  # colonne: Squadra, tot_punti
 
-    csv_classifica = classifica_display.to_csv(index=True).encode("utf-8-sig")
+    cols = st.columns(3)
+    for i, (col, (_, row)) in enumerate(zip(cols, squadre_ordinate.iterrows())):
+        with col:
+            st.metric(
+                label=f"{medaglie[i]} {row['Squadra']}",
+                value=f"{int(row['tot_punti'])} pt",
+            )
+
+    st.divider()
+
+    # ── Dettaglio giocatori per squadra ──────────────────────────────────────
+    st.subheader("👥 Giocatori delle Top 3 Squadre")
+
+    for i, (_, row) in enumerate(squadre_ordinate.iterrows()):
+        nome_squadra = row["Squadra"]
+        gioc_squadra = (
+            giocatori[giocatori["Squadra"] == nome_squadra]
+            [["Nominativo", "Punti"]]
+            .reset_index(drop=True)
+        )
+        gioc_squadra.index = gioc_squadra.index + 1
+
+        with st.expander(f"{medaglie[i]} {nome_squadra} — {int(row['tot_punti'])} punti totali", expanded=True):
+            st.dataframe(gioc_squadra, use_container_width=True)
+
+    st.divider()
+
+    # ── Tabella completa standings + squadre ──────────────────────────────────
+    st.subheader("📋 Tabella completa (Standings + Squadre)")
+    st.dataframe(merged_df, use_container_width=True)
+
+    excel_merged = df_to_excel_bytes(merged_df)
     st.download_button(
-        label="⬇️ Scarica classifica squadre (CSV)",
-        data=csv_classifica,
-        file_name=f"classifica_squadre_{tournament_id}.csv",
-        mime="text/csv",
+        label="⬇️ Scarica tabella completa (Excel)",
+        data=excel_merged,
+        file_name=f"standings_squadre_{tournament_id}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
     st.divider()
 
-    # ── Giocatori top squadre ─────────────────────────────────────────────────
-    st.subheader(f"👥 Giocatori delle top {top_n} squadre")
-    giocatori_display = giocatori.reset_index(drop=True)
-    giocatori_display.index = giocatori_display.index + 1
-    st.dataframe(giocatori_display, use_container_width=True)
-
-    csv_giocatori = giocatori_display.to_csv(index=True).encode("utf-8-sig")
-    st.download_button(
-        label="⬇️ Scarica lista giocatori (CSV)",
-        data=csv_giocatori,
-        file_name=f"giocatori_top_{tournament_id}.csv",
-        mime="text/csv",
-    )
-
-    st.divider()
-
-    # ── Round (opzionale, collassato) ─────────────────────────────────────────
+    # ── Round (collassato) ────────────────────────────────────────────────────
     with st.expander("📋 Dettaglio round (dati grezzi)"):
         st.dataframe(rounds_df, use_container_width=True)
         csv_rounds = rounds_df.to_csv(index=False).encode("utf-8-sig")
