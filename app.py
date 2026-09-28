@@ -18,7 +18,7 @@ with st.expander("⚙️ Parametri", expanded=True):
     with st.form("params"):
         tournament_id = st.text_input(
             "Tournament ID",
-            value="thesideralwolf-tournament-series3",
+            placeholder="your-tournament-id",
             help="L'ID del torneo su TopDeck.gg (es. thesideralwolf-tournament-series3)",
         )
         site = st.text_input(
@@ -28,7 +28,7 @@ with st.expander("⚙️ Parametri", expanded=True):
         )
         gsheet_url = st.text_input(
             "Google Sheet URL",
-            value="https://docs.google.com/spreadsheets/u/0/d/1fkwHoruSU_9-YqRYv_qvcBe52bc0VVgfMx38WNBvjjY/htmlview#gid=1101659693",
+            placeholder="https://docs.google.com/spreadsheets/u/0/d/1fkwHoruSU_9-YqRYv_qvcBe52bc0VVgfMx38WNBvjjY/htmlview#gid=1101659693",
             help="Link al foglio Google Sheets con i dati delle squadre (deve essere pubblico)",
         )
         submitted = st.form_submit_button("🔍 Analizza", use_container_width=True)
